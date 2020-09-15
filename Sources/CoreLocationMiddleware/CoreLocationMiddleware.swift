@@ -50,7 +50,7 @@ let locationReducer = Reducer<LocationAction, LocationState> { action, state in
     return state
 }
 
-public final class CoreLocationMiddleware: NSObject, Middleware {
+public final class CoreLocationMiddleware: Middleware {
     private var getState: GetState<LocationState>?
     private let manager = CLLocationManager()
     private let delegate = CLDelegate()
