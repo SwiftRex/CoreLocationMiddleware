@@ -52,13 +52,13 @@ let locationReducer = Reducer<LocationAction, LocationState> { action, state in
 
 public final class CoreLocationMiddleware: NSObject, Middleware {
     private var getState: GetState<LocationState>?
-    private var output: AnyActionHandler<LocationAction>?
     private let manager = CLLocationManager()
+    private let delegate = CLDelegate()
 
     public func receiveContext(getState: @escaping GetState<LocationState>, output: AnyActionHandler<LocationAction>) {
         self.getState = getState
-        self.output = output
-        manager.delegate = self
+        delegate.output = output
+        manager.delegate = delegate
     }
     public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
@@ -84,8 +84,11 @@ public final class CoreLocationMiddleware: NSObject, Middleware {
     }
 }
 
-extension CoreLocationMiddleware: CLLocationManagerDelegate {
-    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+ class CLDelegate: NSObject, CLLocationManagerDelegate {
+    
+    var output: AnyActionHandler<LocationAction>? = nil
+    
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         switch status {
         case .notDetermined:
             output?.dispatch(.authorizationUnknown)
@@ -97,11 +100,13 @@ extension CoreLocationMiddleware: CLLocationManagerDelegate {
             return
         }
     }
-    public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let last = locations.last else { return }
         output?.dispatch(.gotPosition(last))
     }
-    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         output?.dispatch(.receiveError(error))
     }
 }
