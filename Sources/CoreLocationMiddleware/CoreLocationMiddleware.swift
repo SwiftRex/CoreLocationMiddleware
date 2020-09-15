@@ -55,6 +55,8 @@ public final class CoreLocationMiddleware: Middleware {
     private let manager = CLLocationManager()
     private let delegate = CLDelegate()
 
+    public init() { }
+    
     public func receiveContext(getState: @escaping GetState<LocationState>, output: AnyActionHandler<LocationAction>) {
         self.getState = getState
         delegate.output = output
