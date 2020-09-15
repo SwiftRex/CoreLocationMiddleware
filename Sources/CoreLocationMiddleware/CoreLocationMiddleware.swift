@@ -51,6 +51,11 @@ let locationReducer = Reducer<LocationAction, LocationState> { action, state in
 }
 
 public final class CoreLocationMiddleware: Middleware {
+    
+    public typealias InputActionType = LocationAction
+    public typealias OutputActionType = LocationAction
+    public typealias StateType = LocationState
+    
     private var getState: GetState<LocationState>?
     private let manager = CLLocationManager()
     private let delegate = CLDelegate()
