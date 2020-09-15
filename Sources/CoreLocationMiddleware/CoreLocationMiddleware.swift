@@ -1,13 +1,13 @@
 import CoreLocation
 import SwiftRex
 
-enum LocationState {
+public enum LocationState {
     case unknown
     case notAuthorized
     case authorized(lastPosition: CLLocation?)
 }
 
-enum LocationAction {
+public enum LocationAction {
     case startMonitoring
     case stopMonitoring
     case gotPosition(CLLocation)
@@ -18,7 +18,7 @@ enum LocationAction {
 }
 
 extension LocationAction: Equatable {
-    static func == (lhs: LocationAction, rhs: LocationAction) -> Bool {
+    public static func == (lhs: LocationAction, rhs: LocationAction) -> Bool {
         switch (lhs, rhs) {
         case let (.receiveError(x), .receiveError(y)): return x.localizedDescription == y.localizedDescription
         case let (.gotPosition(x), .gotPosition(y)): return x == y
@@ -50,17 +50,17 @@ let locationReducer = Reducer<LocationAction, LocationState> { action, state in
     return state
 }
 
-class CoreLocationMiddleware: NSObject, Middleware {
+public final class CoreLocationMiddleware: NSObject, Middleware {
     private var getState: GetState<LocationState>?
     private var output: AnyActionHandler<LocationAction>?
     private let manager = CLLocationManager()
 
-    func receiveContext(getState: @escaping GetState<LocationState>, output: AnyActionHandler<LocationAction>) {
+    public func receiveContext(getState: @escaping GetState<LocationState>, output: AnyActionHandler<LocationAction>) {
         self.getState = getState
         self.output = output
         manager.delegate = self
     }
-    func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
+    public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
         case .startMonitoring, .authorized:
             startMonitoring()
@@ -85,7 +85,7 @@ class CoreLocationMiddleware: NSObject, Middleware {
 }
 
 extension CoreLocationMiddleware: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         switch status {
         case .notDetermined:
             output?.dispatch(.authorizationUnknown)
@@ -97,11 +97,11 @@ extension CoreLocationMiddleware: CLLocationManagerDelegate {
             return
         }
     }
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let last = locations.last else { return }
         output?.dispatch(.gotPosition(last))
     }
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         output?.dispatch(.receiveError(error))
     }
 }
