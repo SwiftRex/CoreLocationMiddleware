@@ -8,8 +8,11 @@ public enum LocationState {
 }
 
 public enum LocationAction {
+    // Input
     case startMonitoring
     case stopMonitoring
+    case getAuthorizationStatus
+    // Output
     case gotPosition(CLLocation)
     case authorized
     case unauthorized
@@ -32,11 +35,11 @@ extension LocationAction: Equatable {
 let locationReducer = Reducer<LocationAction, LocationState> { action, state in
     var state = state
     switch action {
+    case .startMonitoring, .stopMonitoring, .getAuthorizationStatus:
+        break
     case .authorized:
         if case .authorized = state { return state }
         state = .authorized(lastPosition: nil)
-    case .startMonitoring, .stopMonitoring:
-        break
     case let .gotPosition(position):
         state = .authorized(lastPosition: position)
     case .unauthorized:
@@ -73,6 +76,12 @@ public final class CoreLocationMiddleware: Middleware {
             startMonitoring()
         case .stopMonitoring:
             stopMonitoring()
+        case .getAuthorizationStatus:
+            if #available(iOS 14.0, *) {
+                delegate.output?.dispatch(getAuthzStatus())
+            } else {
+                return
+            }
         default: return
         }
     }
@@ -88,6 +97,19 @@ public final class CoreLocationMiddleware: Middleware {
     }
     func stopMonitoring() {
         manager.stopUpdatingLocation()
+    }
+    
+    @available(iOS 14.0, *)
+    func getAuthzStatus() -> LocationAction {
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            return .authorized
+        case  .denied, .restricted:
+            return .unauthorized
+        default:
+            return .authorizationUnknown
+        }
+        
     }
 }
 
