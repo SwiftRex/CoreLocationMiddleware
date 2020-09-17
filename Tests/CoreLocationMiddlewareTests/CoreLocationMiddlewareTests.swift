@@ -16,7 +16,7 @@ final class CoreLocationMiddlewareTests: XCTestCase {
         var after1 = AfterReducer.do {
             print("Test")
         }
-        sut.handle(action: .startMonitoring, from: .here(), afterReducer: &after1)
+        sut.handle(action: .stopMonitoring, from: .here(), afterReducer: &after1)
         after1.reducerIsDone()
 
         XCTAssertEqual(store.actionsReceived, [.stopMonitoring])
