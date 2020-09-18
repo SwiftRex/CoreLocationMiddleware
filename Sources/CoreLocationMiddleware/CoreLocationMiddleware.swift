@@ -13,6 +13,7 @@ public enum LocationAction: Equatable {
     case stopMonitoring
     case requestAuthorizationStatus
     case requestAuthorizationType
+    case requestPosition
     // Output
     case gotPosition(CLLocation)
     case gotAuthzStatus(CLAuthorizationStatus)
@@ -28,7 +29,11 @@ public enum AuthzType: Equatable {
 let locationReducer = Reducer<LocationAction, LocationState> { action, state in
     var state = state
     switch action {
-    case .startMonitoring, .stopMonitoring, .requestAuthorizationStatus, .requestAuthorizationType:
+    case .startMonitoring,
+         .stopMonitoring,
+         .requestAuthorizationStatus,
+         .requestAuthorizationType,
+         .requestPosition:
         break
     case let .gotAuthzStatus(status): state.authzStatus = status
     case let .gotPosition(position): state.location = position
@@ -55,6 +60,7 @@ public final class CoreLocationMiddleware: Middleware {
         delegate.output = output
         manager.delegate = delegate
     }
+    
     public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
         case .startMonitoring: startMonitoring()
@@ -74,9 +80,11 @@ public final class CoreLocationMiddleware: Middleware {
             case .none:
                 break
             }
+        case .requestPosition: manager.requestLocation()
         default: return
         }
     }
+    
     func startMonitoring() {
         let stateType = getState?().authzType
         let stateStatus = getState?().authzStatus
