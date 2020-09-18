@@ -1,10 +1,10 @@
 import CoreLocation
 import SwiftRex
 
-public struct LocationState {
-    var authzType: AuthzType = .whenInUse
-    var authzStatus: CLAuthorizationStatus
-    var location: CLLocation
+public struct LocationState: Equatable {
+    public var authzType: AuthzType = .whenInUse
+    public var authzStatus: CLAuthorizationStatus
+    public var location: CLLocation
 }
 
 public enum LocationAction: Equatable {
