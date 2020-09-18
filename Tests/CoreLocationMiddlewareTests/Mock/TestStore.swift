@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreLocation
 
 @testable import SwiftRex
 @testable import CoreLocationMiddleware
@@ -26,7 +27,7 @@ struct AppState: Equatable {
 }
 
 class TestStore {
-    var state: LocationState = LocationState.unknown
+    var state: LocationState = LocationState(authzStatus: .notDetermined, location: CLLocation())
     var actionsReceived: [LocationAction] = []
 
     var getState: (() -> LocationState)!

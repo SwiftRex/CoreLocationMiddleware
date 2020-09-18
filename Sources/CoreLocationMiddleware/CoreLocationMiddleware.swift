@@ -1,48 +1,38 @@
 import CoreLocation
 import SwiftRex
 
-public enum LocationState {
-    case unknown
-    case notAuthorized
-    case authorized(lastPosition: CLLocation?)
+public struct LocationState {
+    var authzType: AuthzType = .whenInUse
+    var authzStatus: CLAuthorizationStatus
+    var location: CLLocation
 }
 
 public enum LocationAction: Equatable {
     // Input
-    case startMonitoring(AuthzType)
+    case startMonitoring
     case stopMonitoring
     case requestAuthorizationStatus
-    case requestAuthorizationType(AuthzType)
+    case requestAuthorizationType
     // Output
     case gotPosition(CLLocation)
     case gotAuthzStatus(CLAuthorizationStatus)
     case receiveError(CLError)
-    
-    public enum AuthzType: Equatable {
-        case whenInUse
-        case always
-    }
 }
+
+public enum AuthzType: Equatable {
+    case whenInUse
+    case always
+}
+
 
 let locationReducer = Reducer<LocationAction, LocationState> { action, state in
     var state = state
     switch action {
     case .startMonitoring, .stopMonitoring, .requestAuthorizationStatus, .requestAuthorizationType:
         break
-    case .gotAuthzStatus(.authorizedAlways),
-         .gotAuthzStatus(.authorizedWhenInUse):
-        if case .authorized = state { return state }
-        state = .authorized(lastPosition: nil)
-    case .gotAuthzStatus(.denied),
-         .gotAuthzStatus(.restricted):
-        state = .notAuthorized
-    case .gotAuthzStatus(.notDetermined):
-        state = .unknown
-    case let .gotPosition(position):
-        state = .authorized(lastPosition: position)
-    case .receiveError,
-         .gotAuthzStatus(_):
-        break
+    case let .gotAuthzStatus(status): state.authzStatus = status
+    case let .gotPosition(position): state.location = position
+    case .receiveError : break
     }
 
     return state
@@ -67,7 +57,7 @@ public final class CoreLocationMiddleware: Middleware {
     }
     public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
-        case let .startMonitoring(auth): startMonitoring(with: auth)
+        case .startMonitoring: startMonitoring()
         case .stopMonitoring: stopMonitoring()
         case .requestAuthorizationStatus:
             if #available(iOS 14.0, *) {
@@ -75,27 +65,37 @@ public final class CoreLocationMiddleware: Middleware {
             } else {
                 return
             }
-        case let .requestAuthorizationType(value):
-            switch value {
+        case .requestAuthorizationType:
+            switch getState?().authzType {
             case .always:
                 manager.requestAlwaysAuthorization()
             case .whenInUse:
                 manager.requestWhenInUseAuthorization()
+            case .none:
+                break
             }
         default: return
         }
     }
-    func startMonitoring(with auth: LocationAction.AuthzType) {
-        switch getState?() {
-        case .authorized?:
-            manager.startUpdatingLocation()
-        default:
-            // requestAlwaysAuthorization or requestWhenInUseAuthorization could be decided on
-            // the middleware init or as payload for startMonitoring
-            auth == .always ? manager.requestAlwaysAuthorization() : manager.requestWhenInUseAuthorization()
-            manager.startUpdatingLocation()
+    func startMonitoring() {
+        let stateType = getState?().authzType
+        let stateStatus = getState?().authzStatus
+        
+        switch stateType {
+        case .always:
+            if CLAuthorizationStatus.authorizedAlways != stateStatus {
+                manager.requestAlwaysAuthorization()
+            }
+        case .whenInUse:
+            if ![CLAuthorizationStatus.authorizedAlways, CLAuthorizationStatus.authorizedWhenInUse].contains(stateStatus) {
+                manager.requestWhenInUseAuthorization()
+            }
+        case .none:
+            break
         }
+        manager.startUpdatingLocation()
     }
+    
     func stopMonitoring() {
         manager.stopUpdatingLocation()
     }
@@ -123,7 +123,6 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     }
 }
 
-@available(iOS 14.0, *)
 private func getAuthzStatus(status: CLAuthorizationStatus) -> LocationAction {
     switch status {
     case .authorizedAlways, .authorizedWhenInUse, .denied, .restricted, .notDetermined:
@@ -131,5 +130,4 @@ private func getAuthzStatus(status: CLAuthorizationStatus) -> LocationAction {
     @unknown default:
         return .receiveError(CLError(.denied, userInfo: ["Unknown status": "The authorization status provided is unknown."]))
     }
-    
 }
