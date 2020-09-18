@@ -11,8 +11,8 @@ public enum LocationAction: Equatable {
     // Input
     case startMonitoring(AuthzType)
     case stopMonitoring
-    case getAuthorizationStatus
-    case requestAuthorization(AuthzType)
+    case requestAuthorizationStatus
+    case requestAuthorizationType(AuthzType)
     // Output
     case gotPosition(CLLocation)
     case gotAuthzStatus(CLAuthorizationStatus)
@@ -27,7 +27,7 @@ public enum LocationAction: Equatable {
 let locationReducer = Reducer<LocationAction, LocationState> { action, state in
     var state = state
     switch action {
-    case .startMonitoring, .stopMonitoring, .getAuthorizationStatus, .requestAuthorization:
+    case .startMonitoring, .stopMonitoring, .requestAuthorizationStatus, .requestAuthorizationType:
         break
     case .gotAuthzStatus(.authorizedAlways),
          .gotAuthzStatus(.authorizedWhenInUse):
@@ -69,13 +69,13 @@ public final class CoreLocationMiddleware: Middleware {
         switch action {
         case let .startMonitoring(auth): startMonitoring(with: auth)
         case .stopMonitoring: stopMonitoring()
-        case .getAuthorizationStatus:
+        case .requestAuthorizationStatus:
             if #available(iOS 14.0, *) {
                 delegate.output?.dispatch(getAuthzStatus(status: manager.authorizationStatus))
             } else {
                 return
             }
-        case let .requestAuthorization(value):
+        case let .requestAuthorizationType(value):
             switch value {
             case .always:
                 manager.requestAlwaysAuthorization()
