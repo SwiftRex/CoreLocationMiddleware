@@ -28,7 +28,7 @@ struct AppState: Equatable {
 
 class TestStore {
     var state: LocationState = LocationState(authzStatus: .notDetermined, location: CLLocation())
-    var actionsReceived: [LocationAction] = []
+    var actionsReceived: [LocationAction] = [.stopMonitoring]
 
     var getState: (() -> LocationState)!
     var actionHandler: AnyActionHandler<LocationAction>!

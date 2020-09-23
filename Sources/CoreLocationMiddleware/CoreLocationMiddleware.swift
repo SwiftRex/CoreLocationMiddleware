@@ -2,11 +2,13 @@ import CoreLocation
 import SwiftRex
 
 public struct LocationState: Equatable {
-    var authzType: AuthzType = .whenInUse
+    var authzType: AuthzType
     var authzStatus: CLAuthorizationStatus
     var location: CLLocation
     
-    public init(authzType: AuthzType, authzStatus: CLAuthorizationStatus, location: CLLocation) {
+    public init(authzType: AuthzType = .whenInUse,
+                authzStatus: CLAuthorizationStatus,
+                location: CLLocation) {
         self.authzType = authzType
         self.authzStatus = authzStatus
         self.location = location
@@ -20,15 +22,25 @@ public enum LocationAction: Equatable {
     case requestAuthorizationStatus
     case requestAuthorizationType
     case requestPosition
+    case requestDeviceCapabilities
     // Output
     case gotPosition(CLLocation)
     case gotAuthzStatus(CLAuthorizationStatus)
+    case gotDeviceCapabilities(DeviceCapabilities)
     case receiveError(CLError)
 }
 
 public enum AuthzType: Equatable {
     case whenInUse
     case always
+}
+
+public struct DeviceCapabilities: Equatable {
+    let isSignificantLocationChangeAvailable: Bool
+    let isHeadingAvailable: Bool
+    let isMonitoringAvailable: Bool
+    let isRangingAvailable: Bool
+    let isLocationServiceAvailable: Bool
 }
 
 
@@ -39,11 +51,12 @@ let locationReducer = Reducer<LocationAction, LocationState> { action, state in
          .stopMonitoring,
          .requestAuthorizationStatus,
          .requestAuthorizationType,
-         .requestPosition:
+         .requestPosition,
+         .requestDeviceCapabilities:
         break
     case let .gotAuthzStatus(status): state.authzStatus = status
     case let .gotPosition(position): state.location = position
-    case .receiveError : break
+    case .gotDeviceCapabilities, .receiveError : break
     }
 
     return state
@@ -87,6 +100,7 @@ public final class CoreLocationMiddleware: Middleware {
                 break
             }
         case .requestPosition: manager.requestLocation()
+        case .requestDeviceCapabilities: delegate.output?.dispatch(getDeviceCapabilities())
         default: return
         }
     }
@@ -112,6 +126,18 @@ public final class CoreLocationMiddleware: Middleware {
     
     func stopMonitoring() {
         manager.stopUpdatingLocation()
+    }
+    
+    func getDeviceCapabilities() -> LocationAction {
+        .gotDeviceCapabilities(
+            DeviceCapabilities(
+                isSignificantLocationChangeAvailable: CLLocationManager.significantLocationChangeMonitoringAvailable(),
+                isHeadingAvailable: CLLocationManager.headingAvailable(),
+                isMonitoringAvailable: CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self),
+                isRangingAvailable: CLLocationManager.isRangingAvailable(),
+                isLocationServiceAvailable: CLLocationManager.locationServicesEnabled()
+            )
+        )
     }
 }
 
