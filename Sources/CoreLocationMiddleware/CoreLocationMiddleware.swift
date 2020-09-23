@@ -36,11 +36,11 @@ public enum AuthzType: Equatable {
 }
 
 public struct DeviceCapabilities: Equatable {
-    let isSignificantLocationChangeAvailable: Bool
-    let isHeadingAvailable: Bool
-    let isMonitoringAvailable: Bool
-    let isRangingAvailable: Bool
-    let isLocationServiceAvailable: Bool
+    public let isSignificantLocationChangeAvailable: Bool
+    public let isHeadingAvailable: Bool
+    public let isMonitoringAvailable: Bool
+    public let isRangingAvailable: Bool
+    public let isLocationServiceAvailable: Bool
 }
 
 
