@@ -38,7 +38,7 @@ public enum AuthzType: Equatable {
 public struct DeviceCapabilities: Equatable {
     public let isSignificantLocationChangeAvailable: Bool
     public let isHeadingAvailable: Bool
-    public let isMonitoringAvailable: Bool
+    public let isRegionMonitoringAvailable: Bool
     public let isRangingAvailable: Bool
     public let isLocationServiceAvailable: Bool
 }
@@ -133,7 +133,7 @@ public final class CoreLocationMiddleware: Middleware {
             DeviceCapabilities(
                 isSignificantLocationChangeAvailable: CLLocationManager.significantLocationChangeMonitoringAvailable(),
                 isHeadingAvailable: CLLocationManager.headingAvailable(),
-                isMonitoringAvailable: CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self),
+                isRegionMonitoringAvailable: CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self),
                 isRangingAvailable: CLLocationManager.isRangingAvailable(),
                 isLocationServiceAvailable: CLLocationManager.locationServicesEnabled()
             )
