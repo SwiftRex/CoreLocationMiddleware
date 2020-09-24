@@ -88,7 +88,7 @@ public final class CoreLocationMiddleware: Middleware {
             if #available(iOS 14.0, *) {
                 delegate.output?.dispatch(getAuthzStatus(status: manager.authorizationStatus))
             } else {
-                return
+                delegate.output?.dispatch(getAuthzStatus(status: CLLocationManager.authorizationStatus()))
             }
         case .requestAuthorizationType:
             switch getState?().authzType {
@@ -146,11 +146,7 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     var output: AnyActionHandler<LocationAction>? = nil
     
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        if #available(iOS 14.0, *) {
             output?.dispatch(getAuthzStatus(status: status))
-        } else {
-            return
-        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
