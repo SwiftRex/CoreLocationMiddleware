@@ -15,7 +15,7 @@ public struct LocationState: Equatable {
     }
 }
 
-public enum LocationAction: Equatable {
+public enum LocationAction {
     // Input
     case startMonitoring
     case stopMonitoring
@@ -27,7 +27,7 @@ public enum LocationAction: Equatable {
     case gotPosition(CLLocation)
     case gotAuthzStatus(CLAuthorizationStatus)
     case gotDeviceCapabilities(DeviceCapabilities)
-    case receiveError(CLError)
+    case receiveError(Error)
 }
 
 public enum AuthzType: Equatable {
@@ -155,7 +155,7 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        output?.dispatch(.receiveError(error as! CLError))
+        output?.dispatch(.receiveError(error))
     }
 }
 

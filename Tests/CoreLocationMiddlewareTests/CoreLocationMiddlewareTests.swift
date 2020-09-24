@@ -19,8 +19,10 @@ final class CoreLocationMiddlewareTests: XCTestCase {
         sut.handle(action: .stopMonitoring, from: .here(), afterReducer: &after1)
         after1.reducerIsDone()
 
-        XCTAssertEqual(store.actionsReceived, [.stopMonitoring])
-        
+        // Ahah... this is soooo hacky, it's ugly.
+        if case .some(LocationAction.stopMonitoring) = store.actionsReceived.first {
+            XCTAssert(store.actionsReceived.count == 1)
+        } else { XCTAssert(false) }
     }
 
     static var allTests = [
