@@ -140,7 +140,9 @@ public final class CoreLocationMiddleware: Middleware {
         default: return
         }
     }
-    
+}
+
+extension CoreLocationMiddleware {
     func startMonitoring() {
         let stateType = getState?().authzType
         let stateStatus = getState?().authzStatus
