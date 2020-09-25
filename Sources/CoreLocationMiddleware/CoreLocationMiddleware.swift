@@ -1,6 +1,32 @@
 import CoreLocation
 import SwiftRex
 
+
+// MARK: - ACTION
+public enum LocationAction {
+    // Input
+    case request(RequestAction)
+    // Output
+    case status(StatusAction)
+}
+
+public enum RequestAction {
+    case startMonitoring
+    case stopMonitoring
+    case requestAuthorizationStatus
+    case requestAuthorizationType
+    case requestPosition
+    case requestDeviceCapabilities
+}
+
+public enum StatusAction {
+    case gotPosition(CLLocation)
+    case gotAuthzStatus(AuthzStatus)
+    case gotDeviceCapabilities(DeviceCapabilities)
+    case receiveError(Error)
+}
+
+// MARK: - STATE
 public struct LocationState: Equatable {
     var authzType: AuthzType
     var authzStatus: CLAuthorizationStatus
@@ -16,21 +42,6 @@ public struct LocationState: Equatable {
         self.authzAccuracy = authzAccuracy
         self.location = location
     }
-}
-
-public enum LocationAction {
-    // Input
-    case startMonitoring
-    case stopMonitoring
-    case requestAuthorizationStatus
-    case requestAuthorizationType
-    case requestPosition
-    case requestDeviceCapabilities
-    // Output
-    case gotPosition(CLLocation)
-    case gotAuthzStatus(AuthzStatus)
-    case gotDeviceCapabilities(DeviceCapabilities)
-    case receiveError(Error)
 }
 
 public enum AuthzType: Equatable {
@@ -51,27 +62,28 @@ public struct DeviceCapabilities: Equatable {
     public let isLocationServiceAvailable: Bool
 }
 
+// MARK: - REDUCERS
 
-let locationReducer = Reducer<LocationAction, LocationState> { action, state in
-    var state = state
-    switch action {
-    case .startMonitoring,
-         .stopMonitoring,
-         .requestAuthorizationStatus,
-         .requestAuthorizationType,
-         .requestPosition,
-         .requestDeviceCapabilities:
-        break
-    case let .gotAuthzStatus(status):
-        state.authzStatus = status.status
-        state.authzAccuracy = status.accuracy
-    case let .gotPosition(position): state.location = position
-    case .gotDeviceCapabilities, .receiveError : break
-    }
-
-    return state
+extension Reducer where ActionType == LocationAction, StateType == LocationState {
+    static let location = Reducer<StatusAction, LocationState>.status.lift(action: \LocationAction.status)
 }
 
+extension Reducer where ActionType == StatusAction, StateType == LocationState {
+    static let status = Reducer { action, state in
+        var state = state
+        switch action {
+        case let .gotAuthzStatus(status):
+            state.authzStatus = status.status
+            state.authzAccuracy = status.accuracy
+        case let .gotPosition(position): state.location = position
+        case .gotDeviceCapabilities, .receiveError : break
+        }
+        return state
+    }
+}
+
+
+// MARK: - MIDDLEWARE
 public final class CoreLocationMiddleware: Middleware {
     
     public typealias InputActionType = LocationAction
@@ -92,25 +104,29 @@ public final class CoreLocationMiddleware: Middleware {
     
     public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
-        case .startMonitoring: startMonitoring()
-        case .stopMonitoring: stopMonitoring()
-        case .requestAuthorizationStatus:
+        case LocationAction.request(.startMonitoring): startMonitoring()
+        case LocationAction.request(.stopMonitoring): stopMonitoring()
+        case LocationAction.request(.requestAuthorizationStatus):
             if #available(iOS 14.0, *) {
                 delegate.output?.dispatch(
-                    getAuthzStatus(
-                        status: manager.authorizationStatus,
-                        accuracy: manager.accuracyAuthorization
+                    LocationAction.status(
+                        getAuthzStatus(
+                            status: manager.authorizationStatus,
+                            accuracy: manager.accuracyAuthorization
+                        )
                     )
                 )
             } else {
                 delegate.output?.dispatch(
-                    getAuthzStatus(
-                        status: CLLocationManager.authorizationStatus(),
-                        accuracy: .none
+                    LocationAction.status(
+                        getAuthzStatus(
+                            status: CLLocationManager.authorizationStatus(),
+                            accuracy: .none
+                        )
                     )
                 )
             }
-        case .requestAuthorizationType:
+        case LocationAction.request(.requestAuthorizationType):
             switch getState?().authzType {
             case .always:
                 manager.requestAlwaysAuthorization()
@@ -119,8 +135,8 @@ public final class CoreLocationMiddleware: Middleware {
             case .none:
                 break
             }
-        case .requestPosition: manager.requestLocation()
-        case .requestDeviceCapabilities: delegate.output?.dispatch(getDeviceCapabilities())
+        case LocationAction.request(.requestPosition): manager.requestLocation()
+        case LocationAction.request(.requestDeviceCapabilities): delegate.output?.dispatch(LocationAction.status(getDeviceCapabilities()))
         default: return
         }
     }
@@ -148,7 +164,7 @@ public final class CoreLocationMiddleware: Middleware {
         manager.stopUpdatingLocation()
     }
     
-    func getDeviceCapabilities() -> LocationAction {
+    func getDeviceCapabilities() -> StatusAction {
         .gotDeviceCapabilities(
             DeviceCapabilities(
                 isSignificantLocationChangeAvailable: CLLocationManager.significantLocationChangeMonitoringAvailable(),
@@ -161,6 +177,7 @@ public final class CoreLocationMiddleware: Middleware {
     }
 }
 
+// MARK: - DELEGATE
 class CLDelegate: NSObject, CLLocationManagerDelegate {
     
     var output: AnyActionHandler<LocationAction>? = nil
@@ -168,9 +185,11 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     @available(iOS 14.0, *)
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         output?.dispatch(
-            getAuthzStatus(
-                status: manager.authorizationStatus,
-                accuracy: manager.accuracyAuthorization
+            LocationAction.status(
+                getAuthzStatus(
+                    status: manager.authorizationStatus,
+                    accuracy: manager.accuracyAuthorization
+                )
             )
         )
     }
@@ -178,28 +197,49 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     @available(iOS, introduced: 4.2, deprecated: 14.0)
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         output?.dispatch(
-            getAuthzStatus(
-                status: status,
-                accuracy: .none
+            LocationAction.status(
+                getAuthzStatus(
+                    status: status,
+                    accuracy: .none
+                )
             )
         )
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let last = locations.last else { return }
-        output?.dispatch(.gotPosition(last))
+        output?.dispatch(LocationAction.status(.gotPosition(last)))
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        output?.dispatch(.receiveError(error))
+        output?.dispatch(LocationAction.status(.receiveError(error)))
     }
 }
 
-private func getAuthzStatus(status: CLAuthorizationStatus, accuracy: CLAccuracyAuthorization?) -> LocationAction {
+// MARK: - HELPERS
+private func getAuthzStatus(status: CLAuthorizationStatus, accuracy: CLAccuracyAuthorization?) -> StatusAction {
     switch status {
     case .authorizedAlways, .authorizedWhenInUse, .denied, .restricted, .notDetermined:
         return .gotAuthzStatus(AuthzStatus(status: status, accuracy: accuracy))
     @unknown default:
         return .receiveError(CLError(.denied, userInfo: ["Unknown status": "The authorization status provided is unknown."]))
+    }
+}
+
+// MARK: - PRISM
+extension LocationAction {
+    public var status: StatusAction? {
+        get {
+            guard case let .status(value) = self else { return nil }
+            return value
+        }
+        set {
+            guard case .status = self, let newValue = newValue else { return }
+            self = .status(newValue)
+        }
+    }
+
+    public var isStatusAction: Bool {
+        self.status != nil
     }
 }
