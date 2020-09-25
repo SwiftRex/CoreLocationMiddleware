@@ -4,12 +4,12 @@ import SwiftRex
 public struct LocationState: Equatable {
     var authzType: AuthzType
     var authzStatus: CLAuthorizationStatus
-    var authzAccuracy: CLAccuracyAuthorization?
+    var authzAccuracy: AuthzAccuracy
     var location: CLLocation
     
     public init(authzType: AuthzType = .whenInUse,
                 authzStatus: CLAuthorizationStatus,
-                authzAccuracy: CLAccuracyAuthorization? = nil,
+                authzAccuracy: AuthzAccuracy = .undefined,
                 location: CLLocation) {
         self.authzType = authzType
         self.authzStatus = authzStatus
@@ -24,12 +24,11 @@ public enum LocationAction {
     case stopMonitoring
     case requestAuthorizationStatus
     case requestAuthorizationType
-    case requestAuthorizationAccuracy
     case requestPosition
     case requestDeviceCapabilities
     // Output
     case gotPosition(CLLocation)
-    case gotAuthzStatus(CLAuthorizationStatus, CLAccuracyAuthorization?)
+    case gotAuthzStatus(AuthzStatus)
     case gotDeviceCapabilities(DeviceCapabilities)
     case receiveError(Error)
 }
@@ -37,6 +36,16 @@ public enum LocationAction {
 public enum AuthzType: Equatable {
     case whenInUse
     case always
+}
+
+public struct AuthzStatus: Equatable {
+    public let status : CLAuthorizationStatus
+    public let accuracy: AuthzAccuracy
+}
+
+public enum AuthzAccuracy: Equatable {
+    case defined(CLAccuracyAuthorization)
+    case undefined
 }
 
 public struct DeviceCapabilities: Equatable {
@@ -55,13 +64,12 @@ let locationReducer = Reducer<LocationAction, LocationState> { action, state in
          .stopMonitoring,
          .requestAuthorizationStatus,
          .requestAuthorizationType,
-         .requestAuthorizationAccuracy,
          .requestPosition,
          .requestDeviceCapabilities:
         break
-    case let .gotAuthzStatus(status, accuracy):
-        state.authzStatus = status
-        state.authzAccuracy = accuracy
+    case let .gotAuthzStatus(status):
+        state.authzStatus = status.status
+        state.authzAccuracy = status.accuracy
     case let .gotPosition(position): state.location = position
     case .gotDeviceCapabilities, .receiveError : break
     }
@@ -93,9 +101,19 @@ public final class CoreLocationMiddleware: Middleware {
         case .stopMonitoring: stopMonitoring()
         case .requestAuthorizationStatus:
             if #available(iOS 14.0, *) {
-                delegate.output?.dispatch(getAuthzStatus(status: manager.authorizationStatus, accuracy: manager.accuracyAuthorization))
+                delegate.output?.dispatch(
+                    getAuthzStatus(
+                        status: manager.authorizationStatus,
+                        accuracy: .defined(manager.accuracyAuthorization)
+                    )
+                )
             } else {
-                delegate.output?.dispatch(getAuthzStatus(status: CLLocationManager.authorizationStatus(), accuracy: nil))
+                delegate.output?.dispatch(
+                    getAuthzStatus(
+                        status: CLLocationManager.authorizationStatus(),
+                        accuracy: .undefined
+                    )
+                )
             }
         case .requestAuthorizationType:
             switch getState?().authzType {
@@ -154,12 +172,22 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
 
     @available(iOS 14.0, *)
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-            output?.dispatch(getAuthzStatus(status: manager.authorizationStatus, accuracy: manager.accuracyAuthorization))
+        output?.dispatch(
+            getAuthzStatus(
+                status: manager.authorizationStatus,
+                accuracy: .defined(manager.accuracyAuthorization)
+            )
+        )
     }
 
     @available(iOS, introduced: 4.2, deprecated: 14.0)
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        output?.dispatch(getAuthzStatus(status: status, accuracy: nil))
+        output?.dispatch(
+            getAuthzStatus(
+                status: status,
+                accuracy: .undefined
+            )
+        )
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -172,10 +200,10 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     }
 }
 
-private func getAuthzStatus(status: CLAuthorizationStatus, accuracy: CLAccuracyAuthorization?) -> LocationAction {
+private func getAuthzStatus(status: CLAuthorizationStatus, accuracy: AuthzAccuracy) -> LocationAction {
     switch status {
     case .authorizedAlways, .authorizedWhenInUse, .denied, .restricted, .notDetermined:
-        return .gotAuthzStatus(status, accuracy)
+        return .gotAuthzStatus(AuthzStatus(status: status, accuracy: accuracy))
     @unknown default:
         return .receiveError(CLError(.denied, userInfo: ["Unknown status": "The authorization status provided is unknown."]))
     }
