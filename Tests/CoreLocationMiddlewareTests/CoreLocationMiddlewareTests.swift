@@ -16,11 +16,11 @@ final class CoreLocationMiddlewareTests: XCTestCase {
         var after1 = AfterReducer.do {
             print("Test")
         }
-        sut.handle(action: LocationAction.request(.stopMonitoring), from: .here(), afterReducer: &after1)
+        sut.handle(action: LocationAction.request(.stop(.locationMonitoring)), from: .here(), afterReducer: &after1)
         after1.reducerIsDone()
 
         // Ahah... this is soooo hacky, it's ugly.
-        if case .some(LocationAction.request(.stopMonitoring)) = store.actionsReceived.first {
+        if case .some(LocationAction.request(.stop(.locationMonitoring))) = store.actionsReceived.first {
             XCTAssert(store.actionsReceived.count == 1)
         } else { XCTAssert(false) }
     }

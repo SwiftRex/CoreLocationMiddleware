@@ -11,8 +11,8 @@ public enum LocationAction {
 }
 
 public enum RequestAction {
-    case startMonitoring
-    case stopMonitoring
+    case start(MonitoringType)
+    case stop(MonitoringType)
     case requestAuthorizationStatus
     case requestAuthorizationType
     case requestPosition
@@ -24,6 +24,15 @@ public enum StatusAction {
     case gotAuthzStatus(AuthzStatus)
     case gotDeviceCapabilities(DeviceCapabilities)
     case receiveError(Error)
+}
+
+public enum MonitoringType {
+    case locationMonitoring
+    case slcMonitoring
+    case headingUpdates
+    case regionMonitoring(CLRegion)
+    case beaconRanging(CLBeaconIdentityConstraint)
+    case visitMonitoring
 }
 
 // MARK: - STATE
@@ -104,12 +113,22 @@ public final class CoreLocationMiddleware: Middleware {
     
     public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
-        case LocationAction.request(.startMonitoring): startMonitoring()
-        case LocationAction.request(.stopMonitoring): stopMonitoring()
-        case LocationAction.request(.requestAuthorizationStatus):
+        case .request(let .start(type)):
+            switch type {
+            case .locationMonitoring: startLocationMonitoring()
+            case .slcMonitoring: manager.startMonitoringSignificantLocationChanges()
+            default: return
+            }
+        case .request(let .stop(type)):
+            switch type {
+            case .locationMonitoring: stopLocationMonitoring()
+            case .slcMonitoring: manager.stopMonitoringSignificantLocationChanges()
+            default: return
+            }
+        case .request(.requestAuthorizationStatus):
             if #available(iOS 14.0, *) {
                 delegate.output?.dispatch(
-                    LocationAction.status(
+                    .status(
                         getAuthzStatus(
                             status: manager.authorizationStatus,
                             accuracy: manager.accuracyAuthorization
@@ -118,7 +137,7 @@ public final class CoreLocationMiddleware: Middleware {
                 )
             } else {
                 delegate.output?.dispatch(
-                    LocationAction.status(
+                    .status(
                         getAuthzStatus(
                             status: CLLocationManager.authorizationStatus(),
                             accuracy: .none
@@ -126,7 +145,7 @@ public final class CoreLocationMiddleware: Middleware {
                     )
                 )
             }
-        case LocationAction.request(.requestAuthorizationType):
+        case .request(.requestAuthorizationType):
             switch getState?().authzType {
             case .always:
                 manager.requestAlwaysAuthorization()
@@ -135,15 +154,15 @@ public final class CoreLocationMiddleware: Middleware {
             case .none:
                 break
             }
-        case LocationAction.request(.requestPosition): manager.requestLocation()
-        case LocationAction.request(.requestDeviceCapabilities): delegate.output?.dispatch(LocationAction.status(getDeviceCapabilities()))
+        case .request(.requestPosition): manager.requestLocation()
+        case .request(.requestDeviceCapabilities): delegate.output?.dispatch(.status(getDeviceCapabilities()))
         default: return
         }
     }
 }
 
 extension CoreLocationMiddleware {
-    func startMonitoring() {
+    func startLocationMonitoring() {
         let stateType = getState?().authzType
         let stateStatus = getState?().authzStatus
         
@@ -162,7 +181,7 @@ extension CoreLocationMiddleware {
         manager.startUpdatingLocation()
     }
     
-    func stopMonitoring() {
+    func stopLocationMonitoring() {
         manager.stopUpdatingLocation()
     }
     
@@ -177,6 +196,10 @@ extension CoreLocationMiddleware {
             )
         )
     }
+}
+
+extension CoreLocationMiddleware {
+    
 }
 
 // MARK: - DELEGATE
