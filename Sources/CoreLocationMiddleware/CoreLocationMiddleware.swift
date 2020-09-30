@@ -116,7 +116,7 @@ public final class CoreLocationMiddleware: Middleware {
         case .request(let .start(type)):
             switch type {
             case .locationMonitoring: startLocationMonitoring()
-            case .slcMonitoring: manager.startMonitoringSignificantLocationChanges()
+            case .slcMonitoring: startSLCMonitoring()
             default: return
             }
         case .request(let .stop(type)):
@@ -199,7 +199,29 @@ extension CoreLocationMiddleware {
 }
 
 extension CoreLocationMiddleware {
+    func startSLCMonitoring() {
+        let stateType = getState?().authzType
+        let stateStatus = getState?().authzStatus
+        
+        switch stateType {
+        case .always:
+            if CLAuthorizationStatus.authorizedAlways != stateStatus {
+                manager.requestAlwaysAuthorization()
+            }
+        case .whenInUse:
+            if ![CLAuthorizationStatus.authorizedAlways, CLAuthorizationStatus.authorizedWhenInUse].contains(stateStatus) {
+                manager.requestWhenInUseAuthorization()
+            }
+        case .none:
+            break
+        }
+        manager.startMonitoringSignificantLocationChanges()
+    }
     
+    func stopSLCMonitoring() {
+        manager.stopMonitoringSignificantLocationChanges()
+    }
+
 }
 
 // MARK: - DELEGATE
