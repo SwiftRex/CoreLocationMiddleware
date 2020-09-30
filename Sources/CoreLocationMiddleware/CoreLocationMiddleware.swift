@@ -28,7 +28,9 @@ public enum StatusAction {
     case gotHeading(CLHeading)
     case gotVisit(CLVisit)
     case gotBeacon([CLBeacon], CLBeaconIdentityConstraint)
+    case gotRegion(CLRegion, CLRegionState)
     case gotLocationUpdatesDeliveryStatus(LocationUpdatesDeliveryStatus)
+    case gotRegionBeingMonitored(CLRegion)
     case gotAuthzStatus(AuthzStatus)
     case gotDeviceCapabilities(DeviceCapabilities)
     case gotLocationServiceConfiguration(LocationServiceConfiguration)
@@ -58,7 +60,10 @@ public struct LocationState: Equatable {
     var beacons: [CLBeacon]?
     /// Identity characteristics for the latest array of CLBeacon retrieved via the delegate
     var beaconIdentityConstraints: CLBeaconIdentityConstraint?
+    var region: CLRegion?
+    var regionState: CLRegionState?
     var locationUpdatesDeliveryStatus: LocationUpdatesDeliveryStatus?
+    var newRegionBeingMonitored: CLRegion?
     var locationServiceConfig: LocationServiceConfiguration?
     var headingServiceConfig: HeadingServiceConfiguration?
     var regionMonitoringServiceConfiguration: RegionMonitoringServiceConfiguration?
@@ -140,7 +145,12 @@ extension Reducer where ActionType == StatusAction, StateType == LocationState {
         case let .gotBeacon(beacons, constraints):
             state.beacons = beacons
             state.beaconIdentityConstraints = constraints
+        case let .gotRegion(region, status):
+            state.region = region
+            state.regionState = status
         case let .gotLocationUpdatesDeliveryStatus(status): state.locationUpdatesDeliveryStatus = status
+        case let .gotRegionBeingMonitored(region):
+            state.newRegionBeingMonitored = region
         case let .gotLocationServiceConfiguration(config): state.locationServiceConfig = config
         case let .gotHeadingServiceConfiguration(config): state.headingServiceConfig = config
         case let .gotRegionMonitoringServiceConfiguration(config): state.regionMonitoringServiceConfiguration = config
@@ -345,6 +355,7 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
     var output: AnyActionHandler<LocationAction>? = nil
     var state: LocationState? = nil
 
+    // Authorization
     @available(iOS 14.0, *)
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         output?.dispatch(
@@ -369,11 +380,13 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
         )
     }
     
+    // Location Monitoring
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let last = locations.last else { return }
         output?.dispatch(.status(.gotPosition(last)))
     }
     
+    // Heading Uupdates
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         output?.dispatch(.status(.gotHeading(newHeading)))
     }
@@ -384,10 +397,12 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
         state?.headingServiceConfig?.displayHeadingCalibration ?? false
     }
     
+    // Beacon Ranging
     func locationManager(_ manager: CLLocationManager, didRange beacons: [CLBeacon], satisfying beaconConstraint: CLBeaconIdentityConstraint) {
         output?.dispatch(.status(.gotBeacon(beacons, beaconConstraint)))
     }
     
+    // Pause / resume location updates
     func locationManagerDidPauseLocationUpdates(_ manager: CLLocationManager) {
         output?.dispatch(.status(.gotLocationUpdatesDeliveryStatus(.paused)))
     }
@@ -396,8 +411,33 @@ class CLDelegate: NSObject, CLLocationManagerDelegate {
         output?.dispatch(.status(.gotLocationUpdatesDeliveryStatus(.resumed)))
     }
     
+    // Region Monitoring
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        output?.dispatch(.status(.gotRegion(region, .inside)))
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        output?.dispatch(.status(.gotRegion(region, .outside)))
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        output?.dispatch(.status(.gotRegion(region, state)))
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
+        output?.dispatch(.status(.gotRegionBeingMonitored(region)))
+    }
+    
+    // Visits
     func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
         output?.dispatch(.status(.gotVisit(visit)))
+    }
+    
+    // Errors
+    func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        // TODO: add an additional field to report the region for which
+        // the monitoring failed.
+        output?.dispatch(.status(.receiveError(error)))
     }
     
     func locationManager(_ manager: CLLocationManager, didFailRangingFor beaconConstraint: CLBeaconIdentityConstraint, error: Error) {
