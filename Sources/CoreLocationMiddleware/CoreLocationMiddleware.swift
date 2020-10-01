@@ -16,6 +16,7 @@ public enum RequestAction {
     case requestAuthorizationStatus
     case requestAuthorizationType
     case requestPosition
+    case requestState(CLRegion)
     case requestDeviceCapabilities
     case requestLocationServiceConfiguration(LocationServiceConfiguration?)
     case requestHeadingServiceConfiguration(HeadingServiceConfiguration?)
@@ -218,6 +219,7 @@ public final class CoreLocationMiddleware: Middleware {
                 break
             }
         case .request(.requestPosition): manager.requestLocation()
+        case let .request(.requestState(region)): manager.requestState(for: region)
         case .request(.requestDeviceCapabilities):
             delegate.output?.dispatch(.status(getDeviceCapabilities()))
         case let .request(.requestLocationServiceConfiguration(config)):
