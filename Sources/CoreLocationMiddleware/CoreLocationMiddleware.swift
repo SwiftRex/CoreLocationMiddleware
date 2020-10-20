@@ -178,14 +178,14 @@ public final class CoreLocationMiddleware: Middleware {
 
     public init() { }
     
-    public func receiveContext(getState: @escaping GetState<LocationState>, output: AnyActionHandler<LocationAction>) {
+    public func receiveContext(getState: @escaping GetState<StateType>, output: AnyActionHandler<OutputActionType>) {
         self.getState = getState
         delegate.output = output
         delegate.state = getState()
         manager.delegate = delegate
     }
     
-    public func handle(action: LocationAction, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
+    public func handle(action: InputActionType, from dispatcher: ActionSource, afterReducer: inout AfterReducer) {
         switch action {
         case let .request(.start(type)): startService(service: type)
         case let .request(.stop(type)): stopService(service: type)
