@@ -172,7 +172,7 @@ public final class CoreLocationMiddleware: Middleware {
     public typealias OutputActionType = LocationAction
     public typealias StateType = LocationState
     
-    private var getState: GetState<LocationState>?
+    private var getState: GetState<StateType>?
     private let manager = CLLocationManager()
     private let delegate = CLDelegate()
 
@@ -354,8 +354,8 @@ extension CoreLocationMiddleware {
 // MARK: - DELEGATE
 class CLDelegate: NSObject, CLLocationManagerDelegate {
     
-    var output: AnyActionHandler<LocationAction>? = nil
-    var state: LocationState? = nil
+    var output: AnyActionHandler<CoreLocationMiddleware.OutputActionType>? = nil
+    var state: CoreLocationMiddleware.StateType? = nil
 
     // Authorization
     @available(iOS 14.0, *)
