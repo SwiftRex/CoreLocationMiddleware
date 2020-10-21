@@ -130,11 +130,11 @@ public enum LocationUpdatesDeliveryStatus: Equatable {
 // MARK: - REDUCERS
 
 extension Reducer where ActionType == LocationAction, StateType == LocationState {
-    static let location = Reducer<StatusAction, LocationState>.status.lift(action: \LocationAction.status)
+    public static let location = Reducer<StatusAction, LocationState>.status.lift(action: \LocationAction.status)
 }
 
 extension Reducer where ActionType == StatusAction, StateType == LocationState {
-    static let status = Reducer { action, state in
+    public static let status = Reducer { action, state in
         var state = state
         switch action {
         case let .gotAuthzStatus(status):
