@@ -3,6 +3,7 @@ import SwiftRex
 
 
 // MARK: - ACTION
+// sourcery: Prism, imports = ["CoreLocation"]
 public enum LocationAction {
     // Input
     case request(RequestAction)
@@ -10,6 +11,7 @@ public enum LocationAction {
     case status(StatusAction)
 }
 
+// sourcery: Prism
 public enum RequestAction {
     case start(MonitoringType)
     case stop(MonitoringType)
@@ -24,6 +26,7 @@ public enum RequestAction {
     case requestBeaconRangingConstraints
 }
 
+// sourcery: Prism
 public enum StatusAction {
     case gotPosition(CLLocation)
     case gotHeading(CLHeading)
@@ -468,19 +471,53 @@ private func getAuthzStatus(status: CLAuthorizationStatus, accuracy: CLAccuracyA
 }
 
 // MARK: - PRISM
-extension LocationAction {
-    public var status: StatusAction? {
-        get {
-            guard case let .status(value) = self else { return nil }
-            return value
-        }
-        set {
-            guard case .status = self, let newValue = newValue else { return }
-            self = .status(newValue)
-        }
-    }
+//extension LocationAction {
+//    public var status: StatusAction? {
+//        get {
+//            guard case let .status(value) = self else { return nil }
+//            return value
+//        }
+//        set {
+//            guard case .status = self, let newValue = newValue else { return }
+//            self = .status(newValue)
+//        }
+//    }
+//
+//    public var isStatusAction: Bool {
+//        self.status != nil
+//    }
+//}
 
-    public var isStatusAction: Bool {
-        self.status != nil
-    }
-}
+
+//extension LocationAction {
+//    public var request: RequestAction? {
+//        get {
+//            guard case let .request(associatedValue0) = self else { return nil }
+//            return (associatedValue0)
+//        }
+//        set {
+//            guard case .request = self, let newValue = newValue else { return }
+//            self = .request(newValue)
+//        }
+//    }
+//
+//    public var isRequest: Bool {
+//        self.request != nil
+//    }
+//
+//    public var status: StatusAction? {
+//        get {
+//            guard case let .status(associatedValue0) = self else { return nil }
+//            return (associatedValue0)
+//        }
+//        set {
+//            guard case .status = self, let newValue = newValue else { return }
+//            self = .status(newValue)
+//        }
+//    }
+//
+//    public var isStatus: Bool {
+//        self.status != nil
+//    }
+//
+//}
